@@ -1,7 +1,7 @@
 import os
 
-APPDIR = os.path.dirname(__file__)
-HOME = os.path.expanduser("~/coff_data/")
+HOME = os.path.dirname(__file__)+"/coff_data"
+# HOME = os.path.expanduser("~/coff_data/")
 ORDDIR = HOME+"ord/"
 DATADIR=HOME+"calcapp/"
 
