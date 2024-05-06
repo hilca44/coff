@@ -14,7 +14,7 @@ import difflib
 import json
 from simple_term_menu import TerminalMenu
 
-DEZI=0
+DEZI=1
 TXT="\.txt"
 ALLO="\.\d?\.tx"
 TODO="\.[12345]?\.txt$"
@@ -124,21 +124,17 @@ def getwor(arr, o):
     di["minst"]=float(liwo[1])
 
     # if no amount -> calculate
-    if arr[1]=="":
+    if arr[1]==0:
         di["n"]=float(liwo[2](o))
     else:
-        try:
-            di["n"]=float(arr[1])
-        except Exception as e:
-            print("wrong bea:"+" ".join(arr))
-            di["n"]=1.0
+        di["n"]=float(arr[1])
     di["uni"]=liwo[3]
     di["geg"]=liwo[4]
     di["epmin"]=work.hsatz/60
     di["epzei"]=di["minst"]*work.hsatz/60
-    di["mintotal"]=float(di["minst"]*di["n"])
-    di["gpmat"]=di["n"]*di["epmat"]
-    di["gpzei"]=di["n"]*di["epzei"]
+    di["mintotal"]=float(di["minst"])*float(di["n"])
+    di["gpmat"]=di["epmat"]*float(di["n"])
+    di["gpzei"]=di["epzei"]*float(di["n"])
     di["gp"]=di["gpmat"]+di["gpzei"]
     # di.row= di.n+" "+arr[3]+"  "+arr[4]+" a "+di.minst+" Euro/"+arr[3]+" = "+di.eu
     # return [di.n,di.uni,di.geg,di.ep.toFixed(2),di.gp.toFixed(2)]
@@ -149,8 +145,8 @@ def getbea2(opo):
     # print(opo["bea"])
     beas="Bearbeitungen: "
     # for e in opo["bea"]:
-    # for e in opo["nOfEach"]:
-    for e in opo["nOfEach"]:
+    # for e in opo["nofeach"]:
+    for e in opo["nofeach"]:
         if e[0] == "" or re.findall("\d", e[0]):
             continue
         # w=getwor([e[0], e[1]], opo)["geg"]
@@ -309,7 +305,7 @@ def men(li,ke):
             [os.system,[ cf.FILEMAN+" "+cf.ORDDIR+ li[ke]]],
             [inv,[pa]],
             [deliv,[pa]],
-            [xdgopen,[cf.ORDDIR, ".pdf"]],
+            [xdgopen,[cf.PDFDIR, ".pdf"]],
             [markAsPayed,[li, ke, 1]],
             [markAsPayed,[li, ke, 2]],
             [markAsPayed,[li, ke, 3]],
@@ -431,9 +427,10 @@ def edio(sort="e"):
     pa=getfzf(cf.ORDDIR, fil,sort)
     if pa==None:
         return ""
-    li=getDirList(cf.ORDDIR, fil)
-    i=li.index(pa[0])
-    men(li,i)
+    # li=getDirList(cf.ORDDIR, fil)
+    # i=li.index(pa[0])
+    # men(li,i)
+    main("o", lastf=pa)
     # openvim(pa[0])
     return [pa[0]]
 
@@ -445,33 +442,44 @@ def edic(c):
     openvim(pa[0])
     pj(pa[0])
     
-    return [pa[0]]
+    return pa
 
 
 def ausw(o,pjj, geg="", t=0):
     detai = ""
     detai+="\nAuswertung 1 St.: "+o["nme"]
-    detai+="\nm2bru: {}".format(o["m2bru"])
+    detai+="\nm2bru: {:6.1f} = {:6.2f} Euro".format(o["m2bru"], o["eum2bru"])
     # for e in o["lm2"]:
     #     detai+= "\nm{:.<22} {:>8} {}".format(
     #         e,
     #         e,
     #           "m2")
-
-    for r in o["nOfEach"]:
-        detai+= "\n{:.<22} {:>8.2f} {}".format(
+    detai+= "\n{:.<22} {:>8} {:3} {:6} {:6} {:6}".format(
+        "geg",  
+        "anz",
+        "einh",
+        "gpmat",
+        "gpzei",
+        "gp"
+        )
+    for r in o["nofeach"]:
+        wo=getwor([ r,float(o["nofeach"][r]) ], o)
+        detai+= "\n{:.<22} {:>8.2f} {:3} {:6.2f} {:6.2f} {:6.2f}".format(
             r,  
-            o["nOfEach"][r],
-            work.diwo[fu.closestkey(work.diwo, r)][3]
+            float(o["nofeach"][r]),
+            wo["uni"],
+            wo["gpmat"],
+            wo["gpzei"],
+            wo["gp"]
             )
     detai+="\n"
-    mkn=o["sumaeu"]
+    mkn=o["sumaeu"]+o["eum2bru"]
     h = o["sumi"] / 60
-    detai += "{:.<22} {:>8.2f} Euro\n".format("Material:", o["sumaeu"])
+    detai += "{:.<22} {:>8.2f} Euro\n".format("Material:", mkn)
     detai += "{1:.<22} {2:>8.{0}f} h\n".format(DEZI,"Gesamtstunden:", h)
     lohn = h * work.hsatz
     detai += "{:.<22} {:8.2f} Euro\n".format("Lohnkosten:", o["suloeu"])
-    selbstk = o["suloeu"] + o["sumaeu"]
+    selbstk = o["suloeu"] + mkn
     detai += "{:.<22} {:8.2f} Euro\n".format("Selbstkosten:", selbstk)
     eurwug = selbstk * pjj["wug"]
     detai += "{:.<22} {:8.2f} Faktor\n".format("WUG: x ",pjj["wug"])
@@ -601,15 +609,16 @@ def if_key_add_el_def(dic, key, val):
     if key in dic:
         if type(val) is str and type(dic[key]) is str:
             # dic[key]+="/"+val
-            print(val)
+            # print(val)
+            kkij=0
         elif type(val) is list and dic[key] is list:
             dic[key].extend(val)
         elif type(val) is dict and type(dic[key]) is dict:
             dic[key]=addFromChildToParent(val, dic[key])
-        elif type(val) is int and dic[key] is int:
+        elif type(val) is int:
             dic[key]=int(dic[key])+val
-        elif type(val) is float and dic[key] is float:
-            dic[key]=float(dic[key])+val
+        elif type(val) is float:
+            dic[key]+=val
 
     else:
         # if type(val) is float:
@@ -630,7 +639,10 @@ def getBeasFromStr(s):
     li=s.strip().split(" ")
     ll=[]
     for e in li:
-        ll.append([e[:6], e[6:]])
+        if e[6:]=="":
+            ll.append([e[:6], 0])
+        else:
+            ll.append([e[:6], float(e[6:])])
     return ll
 
 def newMa(row):
@@ -662,13 +674,16 @@ def newMa(row):
 
 def pp(s):
     print("var-->")
-    print(s)
+    if type(s)==dict:
+        for e in s:
+            print(e+":"+s[e]+"\n")
+    else:
+        print(s)
     print("var-->")
     input("")
 
 
 def calcmat(pa, lmas):
-    pa["bea"].extend(lmas[pa["mat"]]["bea"])
     pa["umf"] = pa["w"]*2+float(pa["d"])*2
     dim=[float(pa["w"]),float(pa["d"]),float(pa["h"])]
     dim.sort(reverse=True)
@@ -676,14 +691,9 @@ def calcmat(pa, lmas):
     pa["m2"]=dim[0]*dim[1]/1000000
     pa["w"]=dim[0]  # w=longest
     pa["d"]=dim[1]  # d=longest 2
-    # ko["m2"] += float(int(ko["w"])*int(ko["d"])/1000000)
-
-    pa["eurm2"] = lmas[0]["preis"]
     pa["h"] = lmas[0]["s"]
-    pa["m2bru"] = float(pa["m2"]*lmas[pa["mat"]]["verschn"])
-    pa["matpreis"] = float(lmas[pa["mat"]]["preis"])*pa["m2bru"]
-    pa["ep"] = pa["matpreis"]
-    pa["sumaeu"] += pa["matpreis"]
+    pa["m2bru"] = float(pa["m2"]*(1+lmas[pa["mat"]]["verschn"]))
+    pa["eum2bru"] = float(lmas[pa["mat"]]["preis"])*pa["m2bru"]
     return pa
 
 
@@ -697,7 +707,8 @@ def newPart(nme,w = 60, d = 40, h = 1.9,
     "suloeu":0.0,
     "sumi":0.0,
     "bea": wor,
-    "nOfEach":{},
+    "nofeach":{},
+    "wo":{},
     "childr":[],
     "calc":0.0,
     "m2":0.0,
@@ -729,7 +740,6 @@ def newPart(nme,w = 60, d = 40, h = 1.9,
 
 def makeParts_step1(k, pjj):
     lmas=pjj["lmas"]
-
     p = {
     "l": ["Seite li",k["s"], k["d"], k["h"],     
           -1, 1, 0, 
@@ -745,7 +755,7 @@ def makeParts_step1(k, pjj):
           "h", [["verbin", 4]]],
     "c": ["Fachboden",k["w"], k["d"], k["s"],       
           1, 1, 28, 
-          "h", [["bodent", 4]]],
+          "h", [["bodtra", 4]]],
     "e": ["Boden fest",k["w"], k["d"], k["s"],   
           1, 0, float(k["h"]) / 2, 
            "h",[]],
@@ -762,19 +772,31 @@ def makeParts_step1(k, pjj):
           1, 1, k["h"], 
           "h", [["verbin", 4]]]
     }
+    pat=[]
     for pp in k["j"]:
         if re.search("[0-9]", pp):
-            k["childr"][-1]["nn"]=float(pp)
+            la=pat[-1]
+            la["nn"]=float(pp)
             continue
         if k["nobea"]==1:
             p[pp][8]=[]
         paa=newPart( *p[pp], k["mat"])
+        pat.append(paa)
+    for paa in pat:
         paa=calcmat(paa,lmas)
-        paa=putValFromBeasToPo(paa)
+        paa["bea"].extend(pjj["lmas"][paa["mat"]]["bea"])
+        # print(paa)
+        paa=putValFromBeasToPo(paa, paa["nn"])
+        k["eum2bru"]+=paa["eum2bru"]
+        k["m2bru"]+=paa["m2bru"]
+        k["sumi"]+=paa["sumi"]
+        k["suloeu"]+=paa["suloeu"]
+        for f in paa["nofeach"]:
+            k["nofeach"]=if_key_add_el_def(k["nofeach"],
+                              f,float(paa["nofeach"][f]))
+        # print(paa)
+        # k=putValsFromOneChildToParent(k, paa)
         k["childr"].append( paa )
-        # k["bea"].extend(paa["bea"])
-        # incl=["m2bru", "ep"]
-        # k=addFromChildToParent(paa, k)
     return k
     
 
@@ -788,7 +810,7 @@ def newHour(pjj, row):
         "sumi":0.0,
         "nobea":0,
         "bea":[],
-        "nOfEach":{},
+        "nofeach":{},
         "childr":[],
         "lm2":[],
         "calc":0.0,
@@ -831,14 +853,17 @@ def newKo(pjj, row):
         "sumaeu":0.0,
         "suloeu":0.0,
         "sumi":0.0,
+        "detai":"",
         "nobea":0,
         "bea":[],
-        "nOfEach":{},
+        "nofeach":{"arbvor":15},
+        "wo":{},
         "childr":[],
         "lm2":[],
         "calc":0.0,
         "m2":0.0,
         "m2bru": 0.0,
+        "eum2bru": 0.0,
         "lm2": {},
         "eurm2":0.0,
         "ep":0.0,
@@ -881,6 +906,8 @@ def newKo(pjj, row):
     ko["dim"]=dim
 
     ko=putValFromBeasToPo(ko)
+    ko=makeParts_step1(ko, pjj)
+    
     # ko=calcmat(ko,lmas)
     # ko=putValsFromChildsToPo(ko)
     return ko
@@ -894,7 +921,7 @@ def newPo(row,lmas,par=[],wug=10):
         "suloeu":0.0,
         "sumi":0.0,
         "bea":[],
-        "nOfEach":{},
+        "nofeach":{},
         "childr":[],
         "calc": 1,
         "m2bru":0.0,
@@ -951,35 +978,35 @@ def newPo(row,lmas,par=[],wug=10):
     di=putValFromBeasToPo(di)
     return di
 ###   
-def putValFromBeasToPo(di):
+def putValFromBeasToPo(di, n=1):
     for w in di["bea"]:
-
+        w[1]=w[1]*n
         working=getwor(w,di)
+        di["wo"][w[0]]=working
         if w[0]=="" or w[0]=="-" or working=={}:
             continue
         di["ep"]+=working["gp"]
         di["sumaeu"]+=working["gpmat"]
         di["suloeu"]+=working["gpzei"]
         di["sumi"] += working["mintotal"]
-        di["nOfEach"]=if_key_add_el_def(di["nOfEach"],
-                                         w[0], working["n"])
+        di["nofeach"]=if_key_add_el_def(di["nofeach"],
+                w[0], float(working["n"]))
     di["gp"] = di["ep"]*di["nn"]
     return di
 
 
-def putValsFromChildsToParent(di):
-    for c in di["childr"]:
-        # working=getwor(w,di)
-        # di["ep"]+=working["gp"]
-        di["sumaeu"]+=c["sumaeu"]*c["nn"]
-        di["suloeu"]+=c["suloeu"]*c["nn"]
-        di["sumi"] += c["sumi"]*c["nn"]
-        di["m2bru"] += c["m2bru"]*c["nn"]
-        di["ep"] += c["ep"]*c["nn"]
-        di["m2"] += c["m2"]*c["nn"]
-    di["gp"] = di["ep"]*di["nn"]
-    di["gp"] = di["gp"]*(1+di["wug"])
-    return di
+def putValsFromOneChildToParent(k,c):
+    # for e in c["nofeach"]:
+    #     k["nofeach"]=if_key_add_el_def(k["nofeach"], e, c["nofeach"][e])
+    k["sumaeu"]+=c["sumaeu"]*c["nn"]
+    k["suloeu"]+=c["suloeu"]*c["nn"]
+    k["sumi"] += c["sumi"]*c["nn"]
+    k["m2bru"] += c["m2bru"]*c["nn"]
+    k["ep"] += c["ep"]*c["nn"]
+    k["m2"] += c["m2"]*c["nn"]
+    k["gp"] = k["ep"]*k["nn"]
+    k["gp"] = k["gp"]*(1+k["wug"])
+    return k
 
 
 
@@ -1038,7 +1065,7 @@ def pj2( mawu, rowko):
 
     pjj={
         "nme":"",
-        "nOfEach":{},
+        "nofeach":{},
         "parents": [],
         "childr": [],
         "ep":0,
@@ -1082,45 +1109,20 @@ def pj2( mawu, rowko):
         if ty == "wug":
             wug = r.split("#")[1].strip()
             pjj["wug"]=float(wug)
-            detail += "WUG: {}\n".format(wug)
             wug = float(wug)
     ko=newKo(pjj,rowko)
-    if ko==None:
-        # if ko == 0:
-        return
-    else:
-        ko=makeParts_step1(ko, pjj)
-        for e in ko["childr"]:
-            e=ausw(e,pjj)
-            pjj["childr"].append(e)
-            ko=addFromChildToParent(e,ko)
-            pjj=addFromChildToParent(e, pjj)
-            pjj["ep"]+= e["gp"]
-            pjj["lmas"][e["mat"]]["m2bru"] += e["m2bru"]
-            pjj["lmas"][e["mat"]]=if_key_add_el_def(pjj["lmas"][e["mat"]], e["mat"], e["m2bru"])
-            ko=if_key_add_el_def(ko, "ep", e["gp"])
-        ko=putValsFromChildsToParent(ko)
-        pjj["parents"].append(ko)
-        ko=ausw(ko, pjj)
-
+    pjj["parents"].append(ko)
 
     # output
-    detail+="\nSummen Projekt:\n######"
-    pjj=ausw(pjj,pjj)
-    for e in pjj["lmas"]:
-        detail+="\nmmm:{}".format(e["m2bru"])
-    detail+=pjj["detai"]
-    detail+="\nSummen Projekt:\n######"
     for op in pjj["parents"]:
         descr=""
         # descr += getmatdescr(op, pjj["lmas"])
-        detail += "\n\n################"
-        detail += "\n# NEW PARENT ###"
-        detail += "\n################"
+        # detail += "\n\n################"
+        # detail += "\n# NEW PARENT ###"
+        # detail += "\n################"
         # clbo+=makerow4faktura(op)
         op = ausw(op,pjj,t=2)
-        roo= makerowo(op)
-        detail += makerowo(op)+"\n"
+        # detail += makerowo(op)+"\n"
         wwoo=getbea2(op)
         holi="\n           bestehend aus: "
         for opo in op["childr"]:
@@ -1133,32 +1135,17 @@ def pj2( mawu, rowko):
         mai=" Material: {} ".format(pjj["lmas"][op["mat"]]["nam"])
         dee=lbd+mai+wwoo+descr+holi
         kv+=makerow4faktura(op,dee)
-        descr2 = " ".join(fu.wrap_einzug(dee,70,10))
-        angtx += "\n"+descr2
-        # detail += getdetailsofpart(op,"nix",einzug=2)
-        detail += op["detai"]
-        for opo in op["childr"]:
-            # descr6 = getmatdescr(opo, pjj["lmas"])
-            detail += makerowo(opo)
-            # wwoo6=getbea2(opo)
-            # dee6=wwoo6+descr6
-            # descr26 = fu.wrap_einzug(dee6,70,10)
-            # detail += "\n"+descr26
-            # detail += getdetailsofpart(opo,"nix")
-            # opo= ausw(opo,pjj)
-            # detail += "/"+ op["nam"]+" / "+opo["detai"]
     clbo+=angtx
     # text
     for e in pjj["tx"]:
         angtx+="\n{}\n".format(e)
-
-
-    # detail += holi
-    detail += "---  "*11+"\n"
-    detail+=clbo
-    detail+=kv
+    # detail+=kv
     pjj["rowforiv"]=kv
-    # detail += m11.makematlist(osum, time=1)
+    pjj["angtx"]=angtx
+    pjj["kv"]=kv
+    pjj["lkos"]="lkos"
+    pjj["detail"]=detail
+    pjj["parents"][0]["detai"]+=detail
     return pjj
 
 def pj( patth):
@@ -1184,7 +1171,8 @@ def pj( patth):
     ###
     pjj={
         "nme":"",
-        "nOfEach":{},
+        "patth":patth,
+        "nofeach":{},
         "parents": [],
         "childr": [],
         "ep":0,
@@ -1255,7 +1243,6 @@ def pj( patth):
                     pjj["lmas"][e["mat"]]["m2bru"] += e["m2bru"]
                     pjj["lmas"][e["mat"]]=if_key_add_el_def(pjj["lmas"][e["mat"]], e["mat"], e["m2bru"])
                     ko=if_key_add_el_def(ko, "ep", e["gp"])
-                ko=putValsFromChildsToParent(ko)
                 pjj["parents"].append(ko)
                 # pjj["childr"].append(ko)
                 # pjj=putValsFromChildsToParent(pjj)
@@ -1332,21 +1319,22 @@ def pj( patth):
     detail += "---  "*11+"\n"
     detail+=clbo
     detail+=kv
+    pjj["angtx"]=angtx
+    pjj["kv"]=kv
+    pjj["lkos"]=lkos
     # detail += m11.makematlist(osum, time=1)
-
+    writeCalcToFile(patth,pjj)
+    
+def writeCalcToFile(patth,pjj):
+    lkos=pjj["lkos"]
+    kv=pjj["kv"]
+    angtx=pjj["angtx"]
     ordner = os.path.dirname(patth)
     currfi = os.path.basename(patth)[:-9]
 
-    scriptfi = os.path.basename(__file__)[4:-3]+"_"
-
-    # pathnew = ordner + "/calc2/detail_" + fi + osum.project[:22].strip().replace(" ", "_") + "_calc.txt"
-    pathnew = patth[:-9] + "_calc.txt"
-    pathnewpdf = patth[:-9] + ".pdf"
-    pathnew = ordner+"/"+scriptfi+currfi + "_calc.txt"
-    pathnew2 = cf.ORDDIR+"KV__"+currfi + "_set.txt"
-    # fu.write_file(pathnew, angtx + detail, 1)
-    fu.write_file(pathnew2, kv)
-    iv(pathnew2)
+    pathnewpdf = cf.PDFDIR+currfi[:-4] + ".pdf"
+    pathnew2 = cf.CALDIR+currfi[:-4] + "_cal.txt"
+    fu.write_file(pathnew2, pjj["detail"])
     fu.fcc(pathnewpdf, angtx, lkos)
     # lessf(pathnew)
 
@@ -1405,12 +1393,13 @@ def iv( patth, doc="RECHNUNG"):
     pdf = 0
     lmas=[]
     lkos=[]
-
+    angtx2="CALC\n"
     angtx=fu.load(cf.HOME+"/iv.tpl")
     ord=fu.load(patth)
     # print(ord)
     ym=""
     pos=""
+    pos2=""
     net=0.0
     dd=""
     ab=0
@@ -1458,6 +1447,7 @@ def iv( patth, doc="RECHNUNG"):
                 pjj=pj2(wugandmat, r)
                 r=pjj["rowforiv"]
                 
+                
             it = r.split("#")
             nff = it[1].strip().split(" ")
             geg = " ".join(nff[3:])
@@ -1483,19 +1473,25 @@ def iv( patth, doc="RECHNUNG"):
             net+=gp
             # items first row
             lgeg=fu.wrap_einzug(geg,40,arr=0)
-            pos+=" "*10+"{:>6}  {:^6} {:<40} {:8.2f} {:9.2f}\n".format(
+            posi=" "*10+"{:>6}  {:^6} {:<40} {:8.2f} {:9.2f}\n".format(
                 n,
                 uni,
                 lgeg[0],
                 ep,
                 gp
-            )
+            )       
+
 
             # items rows > 1
             if len(lgeg) >1:
                 for e in lgeg[1:]:
-                    pos+=" "*25+"{:58} \n".format(e)   
-            pos+="\n"
+                    posi+=" "*25+"{:58} \n".format(e)   
+            posi+="\n"
+            pos+=posi
+            if ty=="ko":
+                pos2+=posi+pjj["parents"][0]["detai"]
+            else:
+                pos2+=posi
     # detail += m11.makematlist(osum, time=1)
     iii=patth.split("/")[-1].split("__")[0]
     aa=patth.split("/")[-1].split("__")[1]
@@ -1523,7 +1519,7 @@ def iv( patth, doc="RECHNUNG"):
         ["iii", "{:>6}".format(iii)],
         ["ty", "{:>77}".format(doc)],
         ["yma", ym],
-        ["ro", pos[:-3]],
+        # ["ro", pos[:-3]],
         # ["net", osum["total"]],
         ["adr", addrr],
         ["bank", bank],
@@ -1546,18 +1542,16 @@ def iv( patth, doc="RECHNUNG"):
     for e in rep2:
         angtx = angtx.replace("{{"+e[0]+"}}", str(e[1]))
     # patth=cf.ORDDIR+patth
-    ordner = os.path.dirname(patth)
-    currfi = os.path.basename(patth)[:-9]
+    angtx2=angtx
+    angtx = angtx.replace("{{ro}}", str(pos[:-3]))
+    angtx2 = angtx2.replace("{{ro}}", str(pos2[:-3]))
 
-    scriptfi = os.path.basename(__file__)[4:-3]+"_"
-    # pathnew = ordner + "/calc2/detail_" + fi + osum.project[:22].strip().replace(" ", "_") + "_calc.txt"
-    pathnew = patth[:-9] + "_inv.txt"
-    pathnewpdf = patth[:-9] + ".pdf"
-    # pathnew = ordner+"/"+scriptfi+currfi + "_inv.txt"
-    fu.write_file(pathnew, angtx, 1)
+    currfi = os.path.basename(patth)[:-4]
+    pathnewpdf = cf.PDFDIR+currfi + ".pdf"
+    pathnew2 = cf.CALDIR+currfi + "_cal.txt"
+    fu.write_file(pathnew2, angtx2, 1)
     fu.fcc(pathnewpdf, angtx, lkos)
-    lessf(pathnew)
-    # xdgopenf(pathnewpdf)
+    lessf(pathnew2)
     return [patth]
 
 
@@ -1635,7 +1629,6 @@ def main(mkey, key=0, ccc=0, lastf=0, flt=0):
         cicle=[TODO,ALLO,ALLO, TXT]
         sorting=["n","n", "e","e"]
         displ=["TODO","ORDbyID","ORDbyEdit", "TXT-FILES"]
-        dirr=cf.DATADIR
         fun=pj
         if flt!=0:
             filt=flt
@@ -1700,7 +1693,7 @@ def main(mkey, key=0, ccc=0, lastf=0, flt=0):
             "l":["[c] toggle ttodo, allord, txt",  main,  [mkey, key, cic(ccc)] ],
             "f":["[z] last order: "+lastf[0], openvim, [cf.ORDDIR+lastf[0]]],
             "d":["[d] deliv", iv, [cf.ORDDIR+ lastf[0], "LIEFERSCHEIN"]  ],
-            "p":["[p] pdf", xdgopen, [cf.ORDDIR,".pdf"] ],
+            "p":["[p] pdf", xdgopen, [cf.PDFDIR,".pdf"] ],
             "n":["[n] new", newOrd, [1]],
         }
         x={
@@ -1711,7 +1704,8 @@ def main(mkey, key=0, ccc=0, lastf=0, flt=0):
         
         # create list entries for list
         for ii,e in enumerate(lf[key:key2]):
-            mm[str(ii)]=["["+str(ii)+"] " +str(key+ii)+" "+ e, main,  [mkey, key-cf.NROWS, ccc, [lf[key+ii]]]]
+            mm[str(ii)]=["["+str(ii)+"] " +str(key+ii)+" "+ e, main, 
+                         [mkey, key-cf.NROWS, ccc, [lf[key+ii]]]]
             x["o"]+=(str(ii))
 
         # assemble menus
@@ -1740,7 +1734,4 @@ def main(mkey, key=0, ccc=0, lastf=0, flt=0):
 
 # try:
 if __name__ == '__main__':
-    while True:
-
-        if main(cf.FIRSTMENU) == "q":
-            break
+    main(cf.FIRSTMENU)
