@@ -5,9 +5,9 @@ Commandline-Programm (Cli) for managing orders, writing offers, delivery notes a
 
 Dependencies
 ---
-with the power of the fantastic fzf!
-nnn
-wkhtmltopdf
++ with the power of the fantastic fzf!
++ nnn
++ wkhtmltopdf
 
 Goals
 ---
