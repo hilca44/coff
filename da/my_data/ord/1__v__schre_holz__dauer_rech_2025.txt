@@ -1,0 +1,8 @@
+o Dauerrechnung Gewerbemiete 2025
+e 
+c 
+d 
+v 2025-02-10
+p 
+1 pau 682.76 Nutzungspauschale f. Teilflächen in der Gwinnerstr. 36, Halle 430 d, für den jeweiligen Monat.
+
